@@ -1,5 +1,7 @@
 use std::vec;
 
+use crate::utils::mean_squared_error;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     InvalidInput,
@@ -116,20 +118,10 @@ impl LinearRegressor {
 
         
         // Compute final loss
-        let mut loss = 0.0;
-        for (j, sample) in standardized_x.iter().enumerate() {
-            let target: f64 = y[j];
-
-            // Prediction
-            let mut pred: f64 = self.bias;
-            for k in 0..n_features {
-                pred += self.weights[k] * sample[k];
-            }
-            
-            loss += (pred - target) * (pred - target);
-        } 
-        
         self.fitted = true; 
+        let predictions = self.predict(x).unwrap();
+        let loss = mean_squared_error(&predictions, &y);
+        
         return Ok(loss);        
     }
 
@@ -165,7 +157,7 @@ impl LinearRegressor {
     fn standarize(&mut self, x: &[Vec<f64>]) -> Vec<Vec<f64>> {
         self.features_mean = vec![0.0; x[0].len()];
         self.features_std = vec![0.0; x[0].len()];
-        for (i, sample) in x.iter().enumerate() {
+        for sample in x.iter() {
             for (j, &value) in sample.iter().enumerate() {
                 self.features_mean[j] += value;
                 self.features_std[j] += value * value;
@@ -233,6 +225,8 @@ impl LinearRegressor {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::utils::mean_squared_error;
+
     use super::*;
 
 
@@ -270,10 +264,7 @@ pub mod tests {
             3. * 7.0 + -1. * -3.1 -6. * 2.3 + 2., 
             3. * -4.0 + -1. * 1.3 -6. * -2.1 + 2.
         ];
-        let prediction_loss: f64 = predictions.iter()
-            .zip(expected_predictions.iter())
-            .map(|(pred, expected)| (pred - expected) * (pred - expected))
-            .sum();
+        let prediction_loss = mean_squared_error(&predictions, &expected_predictions);
         println!("predictions: {:?}", predictions);
         println!("expected predictions: {:?}", expected_predictions);
         println!("prediction loss: {}", prediction_loss);
@@ -302,10 +293,7 @@ pub mod tests {
         // Test prediction
         let predictions = model.predict(&vec![vec![7.0], vec![-4.0]]).unwrap();
         let expected_predictions = vec![2. * 7.0 + 7., 2. * -4.0 + 7.];
-        let prediction_loss: f64 = predictions.iter()
-            .zip(expected_predictions.iter())
-            .map(|(pred, expected)| (pred - expected) * (pred - expected))
-            .sum();
+        let prediction_loss = mean_squared_error(&predictions, &expected_predictions);
         println!("predictions: {:?}", predictions);
         println!("expected predictions: {:?}", expected_predictions);
         println!("prediction loss: {}", prediction_loss);
@@ -346,10 +334,7 @@ pub mod tests {
             3. * 7.0 + -1. * -3.1 -6. * 2.3 + 2., 
             3. * -4.0 + -1. * 1.3 -6. * -2.1 + 2.
         ];
-        let prediction_loss: f64 = predictions.iter()
-            .zip(expected_predictions.iter())
-            .map(|(pred, expected)| (pred - expected) * (pred - expected))
-            .sum();
+        let prediction_loss = mean_squared_error(&predictions, &expected_predictions);
         println!("predictions: {:?}", predictions);
         println!("expected predictions: {:?}", expected_predictions);
         println!("prediction loss: {}", prediction_loss);
