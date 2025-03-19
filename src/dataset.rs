@@ -12,9 +12,6 @@ pub enum DataSetError {
 pub struct DataSet {
     data: Vec<Vec<f64>>,
     target: Vec<f64>,
-
-    std: Option<Vec<f64>>,
-    mean: Option<Vec<f64>>,
 }
 
 impl DataSet {
@@ -40,7 +37,7 @@ impl DataSet {
                 return Err(DataSetError::IncorrectFeatureLengths);
             }
         }
-        Ok(DataSet { data, target, std: None, mean: None })
+        Ok(DataSet { data, target })
     }
 
     /// # Splits the dataset into training and testing sets.
@@ -99,53 +96,14 @@ impl DataSet {
         ))
     }
 
-    /// # Computes the standard deviation of the dataset.
-    /// This function calculates the standard deviation for each feature in the dataset.
-    pub fn compute_std(&mut self) {
-        if self.std.is_none() {
-            self.compute_mean();
-            self.std = Some(vec![0.; self.data[0].len()]);
-            let mean = self.mean.as_ref().unwrap();
-            for row in &self.data {
-                for (i, &value) in row.iter().enumerate() {
-                    self.std.as_mut().unwrap()[i] += (value - mean[i]) * (value - mean[i]);
-                }
-            }
-            for i in self.std.as_deref_mut().unwrap() {
-                *i = (*i / (self.data.len() as f64 - 1.)).sqrt();
-            }
-        }
-    }
-
-    /// # Computes the mean of the dataset.
-    /// This function calculates the mean for each feature in the dataset.
-    pub fn compute_mean(&mut self) {
-        if self.mean.is_none() {
-            self.mean = Some(vec![0.; self.data[0].len()]);
-            for row in &self.data {
-                for (i, &value) in row.iter().enumerate() {
-                    self.mean.as_mut().unwrap()[i] += value;
-                }
-            }
-            for i in self.mean.as_deref_mut().unwrap() {
-                *i /= self.data.len() as f64;
-            }
-        }
-    }
-
-    /// # Returns the standard deviation of the features in the dataset.
-    pub fn std(&self) -> Option<&Vec<f64>> {
-        self.std.as_ref()
-    }
-    
-    /// # Returns the standard deviation of the features in the dataset.
-    pub fn mean(&self) -> Option<&Vec<f64>> {
-        self.mean.as_ref()
-    }
-
     /// # Returns the data of the dataset.
     pub fn data(&self) -> &Vec<Vec<f64>> {
         &self.data
+    }
+
+    /// # Returns a mutable reference to the data of the dataset.
+    pub fn data_mut(&mut self) -> &mut Vec<Vec<f64>> {
+        &mut self.data
     }
 
     /// # Returns the target values of the dataset.
@@ -153,39 +111,71 @@ impl DataSet {
         &self.target
     }
 
+    /// # Returns a mutable reference to the target values of the dataset.
+    pub fn target_mut(&mut self) -> &mut Vec<f64> {
+        &mut self.target
+    }
+
 }
+
+#[derive(Clone, Debug)]
+pub struct DataSetIter<'a> {
+    dataset: &'a DataSet,
+    index: usize,
+}
+impl<'a> Iterator for DataSetIter<'a> {
+    type Item = Sample;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.dataset.data.len() {
+            let sample = Sample {
+                features: self.dataset.data[self.index].clone(),
+                target: self.dataset.target[self.index],
+            };
+            self.index += 1;
+            Some(sample)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a DataSet {
+    type Item = Sample;
+    type IntoIter = DataSetIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        DataSetIter {
+            dataset: self,
+            index: 0,
+        }
+    }
+}
+
+
+#[derive(Clone, Debug)]
+pub struct Sample {
+    features: Vec<f64>,
+    target: f64,
+}
+
+impl Sample {
+    pub fn features(&self) -> &Vec<f64> {
+        &self.features
+    }
+
+    pub fn target(&self) -> f64 {
+        self.target
+    }
+}
+
+
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_std() {
-        let data = vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-            vec![5.0, 6.0],
-        ];
-        let target = vec![1.0, 2.0, 3.0];
-        let mut dataset = DataSet::new(data.clone(), target.clone()).unwrap();
-        dataset.compute_std();
-        assert_eq!(dataset.std(), Some(&vec![2.0, 2.0]));
-    }
-
-    #[test]
-    fn test_mean() {
-        let data = vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-            vec![5.0, 6.0],
-        ];
-        let target = vec![1.0, 2.0, 3.0];
-        let mut dataset = DataSet::new(data.clone(), target.clone()).unwrap();
-        dataset.compute_mean();
-        assert_eq!(dataset.mean(), Some(&vec![3.0, 4.0]));
-    }
-
+    
     #[test]
     fn test_new_error_handling() {
         let ds1 = DataSet::new(vec![], vec![]);
@@ -195,7 +185,7 @@ mod tests {
         assert_eq!(ds2, Err(DataSetError::EmptyDataSet));
 
         let ds3 = DataSet::new(vec![vec![1.0, 2.0]], vec![1.0]);
-        assert_eq!(ds3, Ok(DataSet { data: vec![vec![1.0, 2.0]], target: vec![1.0], std: None, mean: None }));
+        assert_eq!(ds3, Ok(DataSet { data: vec![vec![1.0, 2.0]], target: vec![1.0] }));
 
         let ds4 = DataSet::new(vec![vec![1.0, 2.0], vec![3.0, 4.0]], vec![1.0]);
         assert_eq!(ds4, Err(DataSetError::IncompatibleDimensions));
