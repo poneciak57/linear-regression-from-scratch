@@ -1,5 +1,5 @@
 [package]
-name = "SimpleLinearRegressor"
+name = "simple-linear-regressor"
 version = "0.1.0"
 edition = "2021"
 

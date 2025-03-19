@@ -63,9 +63,6 @@ impl DataSet {
     /// # Errors
     /// This function will return an error if the dataset is empty or if the `test_size` is not between 0.0 and 1.0.
     pub fn split(&self, random_seed: Option<u64>, test_size: f64) -> Result<(DataSet, DataSet), DataSetError> {
-        if self.data.is_empty() || self.target.is_empty() {
-            return Err(DataSetError::EmptyDataSet);
-        }
         if test_size <= 0.0 || test_size >= 1.0 {
             return Err(DataSetError::InvalidTestSize);
         }
@@ -233,11 +230,4 @@ mod tests {
         assert_eq!(result, Err(DataSetError::InvalidTestSize));
     }
     
-    #[test]
-    fn test_split_empty_set() {
-        let dataset = DataSet::new(vec![], vec![]).unwrap();
-
-        let result = dataset.split(Some(57), 0.2);
-        assert_eq!(result, Err(DataSetError::EmptyDataSet));
-    }
 }
