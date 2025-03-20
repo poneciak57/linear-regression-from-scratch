@@ -6,6 +6,8 @@ pub enum DataSetError {
     InvalidTestSize,
     IncompatibleDimensions,
     IncorrectFeatureLengths,
+    CsvError,
+    IncorrectCSVHeader,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -93,6 +95,38 @@ impl DataSet {
         ))
     }
 
+    /// # Creates a new DataSet instance from a CSV file.
+    /// This function reads a CSV file and initializes a DataSet with the provided features and target values.
+    pub fn from_csv(path: &str, features: &[&str], target: &str) -> Result<Self, DataSetError> {
+        let mut data = Vec::new();
+        let mut target_values = Vec::new();
+
+        let mut reader = csv::Reader::from_path(path).map_err(|_| DataSetError::CsvError)?;
+        let headers = reader.headers().map_err(|_| DataSetError::IncorrectCSVHeader)?;
+        let mut feature_indexes: Vec<usize> = Vec::new();
+        for feature in features {
+            if let Some(index) = headers.iter().position(|s| s == *feature) {
+                feature_indexes.push(index);
+            } else {
+                return Err(DataSetError::IncorrectCSVHeader);
+            }
+        }
+        let target_index = headers.iter().position(|s| s == target).ok_or(DataSetError::IncorrectCSVHeader)?;
+
+        
+        for result in reader.records() {
+            let record = result.map_err(|_| DataSetError::EmptyDataSet)?;
+            
+            let row: Vec<f64> = feature_indexes.iter()
+                .map(|i| record.get(*i).unwrap_or("0").parse().unwrap_or(0.0))
+                .collect();
+            data.push(row);
+            target_values.push(record.get(target_index).unwrap_or("0").parse().unwrap_or(0.0));
+        }
+
+        Self::new(data, target_values)
+    }
+
     /// # Returns the data of the dataset.
     pub fn data(&self) -> &Vec<Vec<f64>> {
         &self.data
@@ -173,6 +207,20 @@ impl Sample {
 mod tests {
     use super::*;
     
+    #[test]
+    fn test_csv() {
+        let path = "./insurance_cleaned.csv";
+        let features = ["female", "male", "age", "bmi", "children", "smoker"];
+        let target = "charges";
+
+        // Test the from_csv function
+        let dataset = DataSet::from_csv(path, &features, target);
+        assert!(dataset.is_ok());
+        let dataset = dataset.unwrap();
+        assert_eq!(dataset.data.len(), 1338);
+        // println!("Data: {:?}", dataset.data);
+    }
+
     #[test]
     fn test_new_error_handling() {
         let ds1 = DataSet::new(vec![], vec![]);
